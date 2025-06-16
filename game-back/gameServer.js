@@ -15,6 +15,9 @@ const io = new Server(httpServer, {
   }
 });
 
+const game = io.of("/game");
+const chat = io.of("/chat");
+
 
 app.use(express.static(join(__dirname, "src", "public")));
 app.get("/", (req, res) => {
@@ -23,31 +26,39 @@ app.get("/", (req, res) => {
 
 const players = {};
 
-io.on("connection", (socket) => {
-  console.log("Novo cliente conectado:", socket.id);
+const chatMessages = [];
+
+game.on("connection", (socket) => {
   players[socket.id] = { id: socket.id, x: 400, y: 400 };
-  // Envia para o novo cliente todos os jogadores já conectados
   socket.emit("currentPlayers", players);
-  // Informa todos os outros clientes sobre o novo jogador
   socket.broadcast.emit("spawnPlayer", { id: socket.id, x: 400, y: 400 });
-  // Informa o próprio cliente para criar seu personagem
   socket.emit("spawnPlayer", { id: socket.id, x: 400, y: 400 });
 
-  // Recebe movimentação do cliente
   socket.on("playerMovement", (data) => {
     if (players[socket.id]) {
       players[socket.id].x = data.x;
       players[socket.id].y = data.y;
       players[socket.id].anim = data.anim;
-      // Repassa para todos menos o próprio
       socket.broadcast.emit("playerMoved", { id: socket.id, x: data.x, y: data.y, anim: data.anim });
     }
   });
 
   socket.on("disconnect", () => {
-    console.log("Cliente desconectado:", socket.id);
     delete players[socket.id];
-    io.emit("removePlayer", { id: socket.id });
+    game.emit("removePlayer", { id: socket.id });
+  });
+});
+
+chat.on("connection", (socket) => {
+  // Envie todas as mensagens anteriores para o novo usuário
+  socket.emit('previousMessages', chatMessages);
+
+  socket.on('chat message', (msg) => {
+    const messageObj = { id: socket.id, msg };
+    chatMessages.push(messageObj);
+    (chatMessages.length > 100) 
+    chatMessages.shift();// Salva no array global
+    chat.emit('chat message', messageObj); // Envia para todos
   });
 });
 
