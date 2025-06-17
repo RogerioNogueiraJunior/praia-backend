@@ -7,17 +7,16 @@ import {
   atualizarNomeUsuario
 } from '../models/userModel.js';
 
-
-
 const SECRET = 'sua_chave_secreta';
 
 export async function inserirUsuario(req, res) {
-  const { email, senha } = req.body;
+  const { email, senha, nome, roomId } = req.body;
   if (!email || !senha) return res.status(400).json({ success: false, error: 'Email e senha obrigatórios' });
 
   try {
     const hash = await bcrypt.hash(senha, 10);
-    const user = await inserirUsuarioDB(email, hash);
+    // Agora aceita nome e roomId (opcional)
+    const user = await inserirUsuarioDB(email, hash, nome, roomId);
     res.json({ success: true, user });
   } catch (err) {
     console.error('Erro ao inserir:', err);
@@ -35,17 +34,17 @@ export async function loginUsuario(req, res) {
     if (!user || !(await bcrypt.compare(senha, user.senha))) {
       return res.status(401).json({ success: false, error: 'Email ou senha inválidos' });
     }
-    // Gerar token JWT
-    // Incluindo o nome do usuário no payload do token
+    // Inclui roomId no payload e resposta
     const token = jwt.sign(
-      { id: user.id, email: user.email, nome: user.nome }, 
-      SECRET, 
-      { expiresIn: '1h'});
-    res.json({ 
+      { id: user.id, email: user.email, nome: user.nome, roomId: user.roomId },
+      SECRET,
+      { expiresIn: '1h' }
+    );
+    res.json({
       success: true,
-      user: { id: user.id, nome: user.nome, email: user.email  }, 
-      token 
-      });
+      user: { id: user.id, nome: user.nome, email: user.email, roomId: user.roomId },
+      token
+    });
   } catch (err) {
     console.error('Erro ao fazer login:', err);
     res.status(500).json({ success: false, error: 'Erro interno no servidor' });
@@ -54,11 +53,15 @@ export async function loginUsuario(req, res) {
 
 export async function mudarNomeUsuario(req, res) {
   const { email, name } = req.body;
-  if (!email || !name) return res.status(400).json({ success: false, error: 'Email e nome obrigatórios' });
+  if (!email || !name) {
+    return res.status(400).json({ success: false, error: 'Email e nome obrigatórios' });
+  }
 
   try {
     const user = await atualizarNomeUsuario(email, name);
-    if (!user) return res.status(404).json({ success: false, error: 'Usuário não encontrado' });
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'Usuário não encontrado' });
+    }
     res.json({ success: true, user });
   } catch (err) {
     console.error('Erro ao mudar nome:', err);

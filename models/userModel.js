@@ -37,8 +37,8 @@ User.init(
   }
 );
 
-export async function inserirUsuarioDB(email, senhaHash) {
-  return await User.create({ email, senha: senhaHash });
+export async function inserirUsuarioDB(email, senhaHash, nome = null, roomId = null) {
+  return await User.create({ email, senha: senhaHash, nome, roomId });
 }
 
 export async function buscarUsuarioPorEmail(email) {
