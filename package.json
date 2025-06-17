@@ -17,9 +17,11 @@
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",
     "nodemon": "^3.1.9",
-    "pg": "^8.15.6",
+    "pg": "^8.16.0",
+    "pg-hstore": "^2.3.4",
     "phaser": "^3.88.2",
     "praia": "file:",
+    "sequelize": "^6.37.7",
     "socket.io": "^4.8.1",
     "ws": "^8.18.1"
   },

@@ -1,4 +1,5 @@
 import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
 
 import {
   inserirUsuarioDB,
@@ -6,7 +7,7 @@ import {
   atualizarNomeUsuario
 } from '../models/userModel.js';
 
-import jwt from 'jsonwebtoken';
+
 
 const SECRET = 'sua_chave_secreta';
 
@@ -34,6 +35,8 @@ export async function loginUsuario(req, res) {
     if (!user || !(await bcrypt.compare(senha, user.senha))) {
       return res.status(401).json({ success: false, error: 'Email ou senha inválidos' });
     }
+    // Gerar token JWT
+    // Incluindo o nome do usuário no payload do token
     const token = jwt.sign(
       { id: user.id, email: user.email, nome: user.nome }, 
       SECRET, 

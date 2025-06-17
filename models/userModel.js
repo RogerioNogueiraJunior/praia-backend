@@ -1,28 +1,60 @@
-import pkg from 'pg';
-const { Pool } = pkg;
+import { Sequelize, DataTypes, Model } from 'sequelize';
 
-const pool = new Pool({
-  user: 'postgres',
+const sequelize = new Sequelize('praia', 'postgres', 'password', {
   host: 'localhost',
-  database: 'praia',
-  password: 'password',
+  dialect: 'postgres',
   port: 5432,
 });
 
+class User extends Model {}
+
+User.init(
+  {
+    id: {
+      type: DataTypes.INTEGER,
+      autoIncrement: true,
+      primaryKey: true,
+    },
+    email: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true,
+    },
+    senha: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    nome: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+  },
+  {
+    sequelize,
+    modelName: 'User',
+    tableName: 'users',
+    timestamps: false,
+  }
+);
+
 export async function inserirUsuarioDB(email, senhaHash) {
-  const query = 'INSERT INTO users (email, senha) VALUES ($1, $2) RETURNING *';
-  const result = await pool.query(query, [email, senhaHash]);
-  return result.rows[0];
+  return await User.create({ email, senha: senhaHash });
 }
 
 export async function buscarUsuarioPorEmail(email) {
-  const query = 'SELECT * FROM users WHERE email = $1';
-  const result = await pool.query(query, [email]);
-  return result.rows[0];
+  return await User.findOne({ where: { email } });
 }
 
 export async function atualizarNomeUsuario(email, nome) {
-  const query = 'UPDATE users SET nome = $2 WHERE email = $1 RETURNING id, email, nome';
-  const result = await pool.query(query, [email, nome]);
-  return result.rows[0];
+  const [updatedRows, [updatedUser]] = await User.update(
+    { nome },
+    {
+      where: { email },
+      returning: true,
+      individualHooks: true,
+    }
+  );
+  return updatedUser;
 }
+
+export { sequelize, User };
