@@ -4,6 +4,9 @@ import path from 'path';
 import userRoutes from './routes/UserRoutes.js';
 import roomRoutes from './routes/RoomRoutes.js';
 
+import tokenTransporter from './routes/tokenRoutes.js';
+
+
 
 
 const app = express();
@@ -11,6 +14,8 @@ const port = 8081;
 // Caminho do front-end vindo da variável de ambiente ou valor padrão
 const publicPath = process.env.FRONTEND_PATH || 'public';
 
+app.use(express.json());
+app.use('/api', tokenTransporter);
 // Configurações básicas
 app.use(cors({
   origin: ["http://localhost:5173", "http://localhost:8081"], // coloque as portas que você usa no frontend
