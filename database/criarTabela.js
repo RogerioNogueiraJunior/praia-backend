@@ -12,14 +12,13 @@ const pool = new Pool({
 const criarTabela = async () => {
   const createDomainQuery = `
     DO $$
-    BEGIN
-      IF NOT EXISTS (
-        SELECT 1 FROM pg_type WHERE typname = 'nome_usuario'
-      ) THEN
-        CREATE DOMAIN nome_usuario AS VARCHAR(100) DEFAULT 'praieiro';
-      END IF;
-    END
-    $$;
+      BEGIN
+        PERFORM 1 FROM pg_type WHERE typname = 'nome_usuario';
+        IF NOT FOUND THEN
+          EXECUTE 'CREATE DOMAIN nome_usuario AS VARCHAR(100) DEFAULT ''praieiro''';
+        END IF;
+      END
+      $$;
   `;
 
   const createTableQuery = `
