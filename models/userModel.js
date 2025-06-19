@@ -27,11 +27,7 @@ User.init(
     nome: {
       type: DataTypes.STRING,
       allowNull: true,
-    },
-    roomId: {
-      type: DataTypes.INTEGER,
-      allowNull: true,
-    },
+    }
   },
   {
     sequelize,
@@ -41,17 +37,12 @@ User.init(
   }
 );
 
-export async function inserirUsuarioDB(email, senhaHash, nome = null, roomId = null) {
+export async function inserirUsuarioDB(email, senhaHash, nome = null) {
   const userData = { email, senha: senhaHash };
 
   if (nome !== null && nome !== undefined) {
     userData.nome = nome;
   }
-
-  if (roomId !== null && roomId !== undefined) {
-    userData.roomId = roomId;
-  }
-
   return await User.create(userData);
 }
 

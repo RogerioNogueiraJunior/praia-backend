@@ -3,7 +3,6 @@ import { createServer } from "http";
 import { Server } from "socket.io";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
-import { deleteRoomById } from '../models/roomModel.js';
 import tk from "../routes/tokenRoutes.js";
 import jwt from "jsonwebtoken";
 
@@ -47,45 +46,53 @@ function autenticarSocket(socket, next) {
 game.use(autenticarSocket);
 chat.use(autenticarSocket);
 
-const playersByRoom = {};// { salaId: { nome: playerData } }
+const playersByRoom = {}; // { salaId: { userId: playerData } }
 
 game.on("connection", (socket) => {
   let salaId = null;
   let nome = null;
+  let userId = null;
 
-  socket.on("joinRoom", ({ salaId: sala, nome: playerName }) => {
+  socket.on("joinRoom", ({ salaId: sala, nome: playerName, userId: uid }) => {
     salaId = sala;
     nome = playerName;
+    userId = uid;
+
     socket.join(salaId);
-    socket.user = { nome: playerName, salaId: salaId }; // Armazena o nome e sala no socket
+    socket.user = { nome: playerName, salaId: salaId, userId: userId };
+
     if (!playersByRoom[salaId]) playersByRoom[salaId] = {};
 
-    const existingPlayer = playersByRoom[salaId][nome];
+    const existingPlayer = playersByRoom[salaId][userId];
 
-    playersByRoom[salaId][nome] = {
+    playersByRoom[salaId][userId] = {
       socketId: socket.id,
       x: existingPlayer ? existingPlayer.x : 400,
       y: existingPlayer ? existingPlayer.y : 400,
-      nome: nome
+      nome: nome,
+      userId: userId
     };
 
-    // Envia os players já existentes para o novo player
+    // Envia todos os jogadores atuais da sala
     socket.emit("currentPlayers", playersByRoom[salaId]);
 
-    // Notifica os outros players sobre o novo
+    // Notifica os outros que chegou um novo
     socket.to(salaId).emit("spawnPlayer", {
+      userId: userId,
       nome: nome,
-      x: playersByRoom[salaId][nome].x,
-      y: playersByRoom[salaId][nome].y
+      x: playersByRoom[salaId][userId].x,
+      y: playersByRoom[salaId][userId].y
     });
   });
 
   socket.on("playerMovement", (data) => {
-    if (salaId && nome && playersByRoom[salaId][nome]) {
-      playersByRoom[salaId][nome].x = data.x;
-      playersByRoom[salaId][nome].y = data.y;
-      playersByRoom[salaId][nome].anim = data.anim;
+    if (salaId && userId && playersByRoom[salaId] && playersByRoom[salaId][userId]) {
+      playersByRoom[salaId][userId].x = data.x;
+      playersByRoom[salaId][userId].y = data.y;
+      playersByRoom[salaId][userId].anim = data.anim;
+
       socket.to(salaId).emit("playerMoved", {
+        userId: userId,
         nome: nome,
         x: data.x,
         y: data.y,
@@ -95,9 +102,9 @@ game.on("connection", (socket) => {
   });
 
   socket.on("disconnect", async () => {
-    if (salaId && nome && playersByRoom[salaId]) {
-      delete playersByRoom[salaId][nome];
-      socket.to(salaId).emit("removePlayer", { nome: nome });
+    if (salaId && userId && playersByRoom[salaId] && playersByRoom[salaId][userId]) {
+      delete playersByRoom[salaId][userId];
+      socket.to(salaId).emit("removePlayer", { nome: nome, userId: userId });
 
       if (Object.keys(playersByRoom[salaId]).length === 0) {
         delete playersByRoom[salaId];
@@ -116,19 +123,18 @@ game.on("connection", (socket) => {
 const chatMessagesByRoom = {};
 
 chat.on("connection", (socket) => {
-  let nome = null;
-  socket.on('joinRoom', ({ salaId, }) => {
+  socket.on('joinRoom', ({ salaId }) => {
     socket.join(salaId);
     if (!chatMessagesByRoom[salaId]) chatMessagesByRoom[salaId] = [];
     socket.emit('previousMessages', chatMessagesByRoom[salaId]);
   });
 
-  socket.on('chat message', ({ salaId, msg, nome: nome}) => {
+  socket.on('chat message', ({ salaId, msg, nome }) => {
     if (!chatMessagesByRoom[salaId]) chatMessagesByRoom[salaId] = [];
 
     const message = {
       nome: nome,
-      user: socket.user.nome || 'Anônimo' ,
+      user: socket.user.nome || 'Anônimo',
       msg
     };
 
@@ -141,11 +147,8 @@ httpServer.listen(3000, () => {
   console.log("Server is running on http://localhost:3000");
 });
 
+// Função mock de apagar sala (substitua pela sua lógica real de banco)
 async function apagarSalaDoBanco(salaId) {
-  try {
-    await deleteRoomById(Number(salaId));
-    console.log(`Sala ${salaId} removida do banco de dados.`);
-  } catch (err) {
-    console.error("Erro ao apagar sala:", err);
-  }
+  console.log(`Apagando sala ${salaId} do banco...`);
+  // Aqui você faz o delete no banco, se quiser
 }

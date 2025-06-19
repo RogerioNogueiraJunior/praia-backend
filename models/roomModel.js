@@ -1,7 +1,6 @@
 import { Sequelize, DataTypes, Model } from 'sequelize';
 import { User } from './userModel.js';
 
-// Ajuste a conexão conforme seu ambiente
 const sequelize = new Sequelize('praia', 'postgres', 'password', {
   host: 'localhost',
   dialect: 'postgres',
@@ -10,53 +9,63 @@ const sequelize = new Sequelize('praia', 'postgres', 'password', {
 
 class Room extends Model {}
 
-Room.init({
-  id: {
-    type: DataTypes.INTEGER,
-    primaryKey: true,
-    unique: true,
-    allowNull: false,
-    // Não autoincrementa, será gerado manualmente
+Room.init(
+  {
+    id: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      unique: true,
+      allowNull: false,
+    },
+    chatId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: {
+        model: 'chats',
+        key: 'id',
+      },
+      field: 'chatid',
+    },
+    creatorUserId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: {
+        model: 'users',
+        key: 'id',
+      },
+      field: 'creatoruserid',
+    },
+    createdAt: {
+      type: DataTypes.DATE,
+      field: 'createdat',
+    },
+    updatedAt: {
+      type: DataTypes.DATE,
+      field: 'updatedat',
+    },
   },
-  name: {
-    type: DataTypes.STRING,
-    allowNull: false,
-  },
-  chatId: {
-    type: DataTypes.INTEGER,
-    allowNull: false,
-    references: {
-      model: 'chats', // nome da tabela de chat
-      key: 'id'
-    }
+  {
+    sequelize,
+    modelName: 'Room',
+    tableName: 'rooms',
+    timestamps: true,
   }
-}, {
-  sequelize,
-  modelName: 'Room',
-  tableName: 'rooms',
-  timestamps: true,
-});
+);
 
-// Relação: vários usuários para uma sala
-User.belongsTo(Room, { foreignKey: 'roomId' });
-Room.hasMany(User, { foreignKey: 'roomId' });
+// Relacionamento: Uma sala foi criada por um usuário
+Room.belongsTo(User, { foreignKey: 'creatorUserId', as: 'creator' });
 
-// Função para gerar id de 4 dígitos aleatório
-function generateRoomId() {
-  return Math.floor(1000 + Math.random() * 9000);
-}
-
-// Criação de sala com id aleatório
-export async function createRoom(name, chatId) {
+export async function createRoom(chatId, creatorUserId) {
   let id;
   let exists = true;
-  // Garante que o id não exista
+
   while (exists) {
     id = generateRoomId();
     exists = await Room.findOne({ where: { id } });
   }
+
   try {
-    const room = await Room.create({ id, name, chatId });
+    const room = await Room.create({ id, chatId, creatorUserId });
     return room;
   } catch (error) {
     console.error('Erro ao criar sala:', error);
@@ -64,14 +73,8 @@ export async function createRoom(name, chatId) {
   }
 }
 
-export async function deleteRoomById(roomId) {
-  try {
-    const deleted = await Room.destroy({ where: { id: roomId } });
-    return deleted;
-  } catch (error) {
-    console.error('Erro ao deletar sala:', error);
-    throw error;
-  }
+function generateRoomId() {
+  return Math.floor(1000 + Math.random() * 9000);
 }
 
 export default Room;

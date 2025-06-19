@@ -1,7 +1,7 @@
 import { Sequelize, DataTypes, Model } from 'sequelize';
 import { User } from './userModel.js';
 
-// Ajuste a conexão conforme seu ambiente
+// Conexão com o banco
 const sequelize = new Sequelize('praia', 'postgres', 'password', {
   host: 'localhost',
   dialect: 'postgres',
@@ -11,6 +11,7 @@ const sequelize = new Sequelize('praia', 'postgres', 'password', {
 class Chat extends Model {}
 class Message extends Model {}
 
+// Model Chat
 Chat.init({
   id: {
     type: DataTypes.INTEGER,
@@ -22,8 +23,11 @@ Chat.init({
   modelName: 'Chat',
   tableName: 'chats',
   timestamps: true,
+  createdAt: 'createdat',
+  updatedAt: 'updatedat'
 });
 
+// Model Message
 Message.init({
   id: {
     type: DataTypes.INTEGER,
@@ -40,7 +44,8 @@ Message.init({
     references: {
       model: Chat,
       key: 'id'
-    }
+    },
+    field: 'chatid'
   },
   userId: {
     type: DataTypes.INTEGER,
@@ -48,13 +53,16 @@ Message.init({
     references: {
       model: User,
       key: 'id'
-    }
+    },
+    field: 'userid'
   }
 }, {
   sequelize,
   modelName: 'Message',
   tableName: 'messages',
   timestamps: true,
+  createdAt: 'createdat',
+  updatedAt: 'updatedat'
 });
 
 // Associações
