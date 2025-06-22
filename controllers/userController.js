@@ -6,17 +6,15 @@ import {
   buscarUsuarioPorEmail,
   atualizarNomeUsuario
 } from '../models/userModel.js';
-import { json } from 'sequelize';
 
-const SECRET = 'segredo_super_secreto'; // Use uma chave secreta forte e única
+const SECRET = 'segredo_super_secreto';
 
 export async function inserirUsuario(req, res) {
-  const { email, senha, nome} = req.body;
+  const { email, senha, nome } = req.body;
   if (!email || !senha) return res.status(400).json({ success: false, error: 'Email e senha obrigatórios' });
 
   try {
     const hash = await bcrypt.hash(senha, 10);
-    // Agora aceita nome
     const user = await inserirUsuarioDB(email, hash, nome);
     res.json({ success: true, user });
   } catch (err) {
@@ -35,23 +33,23 @@ export async function loginUsuario(req, res) {
     if (!user || !(await bcrypt.compare(senha, user.senha))) {
       return res.status(401).json({ success: false, error: 'Email ou senha inválidos' });
     }
+
     const token = jwt.sign(
       {
         id: user.id,
         email: user.email,
         nome: user.nome,
-        iat: Math.floor(Date.now() / 1000) // issued at timestamp
+        iat: Math.floor(Date.now() / 1000)
       },
       SECRET,
       { expiresIn: '1h' }
     );
-    // Retorna o usuário sem a senha
+
     res.json({
       success: true,
-      user: { id: user.id, nome: user.nome, email: user.email},
+      user: { id: user.id, nome: user.nome, email: user.email },
       token
     });
-    return json({ success: true, user, token });
   } catch (err) {
     console.error('Erro ao fazer login:', err);
     res.status(500).json({ success: false, error: 'Erro interno no servidor' });
@@ -69,7 +67,25 @@ export async function mudarNomeUsuario(req, res) {
     if (!user) {
       return res.status(404).json({ success: false, error: 'Usuário não encontrado' });
     }
-    res.json({ success: true, user });
+
+    // Gerar novo token com o nome atualizado
+    const newToken = jwt.sign(
+      {
+        id: user.id,
+        email: user.email,
+        nome: user.nome,
+        iat: Math.floor(Date.now() / 1000)
+      },
+      SECRET,
+      { expiresIn: '1h' }
+    );
+
+    res.json({
+      success: true,
+      user: { id: user.id, nome: user.nome, email: user.email },
+      newToken
+    });
+
   } catch (err) {
     console.error('Erro ao mudar nome:', err);
     res.status(500).json({ success: false, error: 'Erro interno no servidor' });
