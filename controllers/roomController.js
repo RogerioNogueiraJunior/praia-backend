@@ -6,6 +6,35 @@ import Chat from '../models/chatModel.js';
 import {User} from '../models/userModel.js';
 import Room from '../models/roomModel.js';
 
+export async function deletarSala(req, res) {
+  const salaId = req.params.id;
+  const { userId } = req.body;  // O frontend deve enviar o userId do usuário logado
+
+  if (!userId) {
+    return res.status(400).json({ success: false, error: 'ID do usuário é obrigatório' });
+  }
+
+  try {
+    const sala = await Room.findByPk(salaId);
+
+    if (!sala) {
+      return res.status(404).json({ success: false, error: 'Sala não encontrada' });
+    }
+
+    if (sala.creatorUserId !== parseInt(userId)) {
+      return res.status(403).json({ success: false, error: 'Você só pode apagar salas que criou.' });
+    }
+
+    await sala.destroy();
+
+    res.json({ success: true, message: 'Sala apagada com sucesso' });
+  } catch (error) {
+    console.error('Erro ao deletar sala:', error);
+    res.status(500).json({ success: false, error: 'Erro ao deletar sala' });
+  }
+}
+
+
 export async function listarSalas(req, res) {
   let page = parseInt(req.query.page) || 1;
   let limit = parseInt(req.query.limit) || 10;

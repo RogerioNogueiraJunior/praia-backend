@@ -5,6 +5,7 @@ import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import tk from "../routes/tokenRoutes.js";
 import jwt from "jsonwebtoken";
+import Room from '../models/roomModel.js';  // importar model para buscar sala real
 
 const SECRET = 'segredo_super_secreto';
 
@@ -47,13 +48,14 @@ game.use(autenticarSocket);
 chat.use(autenticarSocket);
 
 const playersByRoom = {}; // { salaId: { userId: playerData } }
+const adminsByRoom = {};  // { salaId: userIdAdmin }
 
 game.on("connection", (socket) => {
   let salaId = null;
   let nome = null;
   let userId = null;
 
-  socket.on("joinRoom", ({ salaId: sala, nome: playerName, userId: uid }) => {
+  socket.on("joinRoom", async ({ salaId: sala, nome: playerName, userId: uid }) => {
     salaId = sala;
     nome = playerName;
     userId = uid;
@@ -73,10 +75,28 @@ game.on("connection", (socket) => {
       userId: userId
     };
 
-    // Envia todos os jogadores atuais da sala
+    // Define admin se ainda não tiver
+    try {
+      const salaDb = await Room.findByPk(salaId);
+      if (salaDb) {
+        adminsByRoom[salaId] = salaDb.creatorUserId;
+      } else {
+        adminsByRoom[salaId] = null;
+      }
+    } catch (err) {
+      console.error('Erro ao buscar sala no banco:', err);
+      adminsByRoom[salaId] = null;
+    }
+
+    const isAdmin = adminsByRoom[salaId] === parseInt(userId);
+
+    socket.emit('adminStatus', {
+      isAdmin: isAdmin,
+      adminUserId: adminsByRoom[salaId] ? adminsByRoom[salaId].toString() : null
+    });
+
     socket.emit("currentPlayers", playersByRoom[salaId]);
 
-    // Notifica os outros que chegou um novo
     socket.to(salaId).emit("spawnPlayer", {
       userId: userId,
       nome: nome,
@@ -101,13 +121,55 @@ game.on("connection", (socket) => {
     }
   });
 
+  socket.on('removePlayerRequest', ({ targetUserId }) => {
+    if (adminsByRoom[salaId] !== parseInt(userId)) {
+      socket.emit('errorMessage', 'Você não tem permissão para remover jogadores');
+      return;
+    }
+
+    const targetPlayer = playersByRoom[salaId]?.[targetUserId];
+    if (targetPlayer) {
+      // Manda o jogador alvo desconectar
+      game.to(targetPlayer.socketId).emit('forceDisconnect');
+
+      // Remove o jogador da memória do servidor
+      delete playersByRoom[salaId][targetUserId];
+
+      // Manda para todos da sala (incluindo admin) remover o personagem no front
+      game.to(salaId).emit('removePlayer', { userId: targetUserId });
+    }
+  });
+
+  // Novo: cliente avisa que está saindo (ex: ao ser kickado)
+  socket.on('playerLeaving', async ({ salaId: sala, userId: uid }) => {
+    if (playersByRoom[sala] && playersByRoom[sala][uid]) {
+      delete playersByRoom[sala][uid];
+      game.to(sala).emit('removePlayer', { userId: uid });
+
+      console.log(`Jogador ${uid} saiu da sala ${sala}`);
+
+      if (Object.keys(playersByRoom[sala]).length === 0) {
+        delete playersByRoom[sala];
+        delete adminsByRoom[sala];
+        try {
+          await apagarSalaDoBanco(sala);
+        } catch (err) {
+          console.error('Erro ao apagar sala:', err);
+        }
+      }
+    }
+  });
+
   socket.on("disconnect", async () => {
     if (salaId && userId && playersByRoom[salaId] && playersByRoom[salaId][userId]) {
       delete playersByRoom[salaId][userId];
-      socket.to(salaId).emit("removePlayer", { nome: nome, userId: userId });
+      game.to(salaId).emit("removePlayer", { userId: userId });
+
+      console.log(`Jogador ${userId} desconectou da sala ${salaId}`);
 
       if (Object.keys(playersByRoom[salaId]).length === 0) {
         delete playersByRoom[salaId];
+        delete adminsByRoom[salaId];
         try {
           await apagarSalaDoBanco(salaId);
         } catch (err) {
@@ -117,7 +179,6 @@ game.on("connection", (socket) => {
     }
   });
 });
-
 // ---------------- CHAT ----------------
 
 const chatMessagesByRoom = {};
@@ -129,12 +190,12 @@ chat.on("connection", (socket) => {
     socket.emit('previousMessages', chatMessagesByRoom[salaId]);
   });
 
-  socket.on('chat message', ({ salaId, msg, nome }) => {
+  socket.on('chat message', ({ salaId, msg,}) => {
     if (!chatMessagesByRoom[salaId]) chatMessagesByRoom[salaId] = [];
 
     const message = {
-      nome: nome,
-      user: socket.user.nome || 'Anônimo',
+      nome: socket.user.nome,
+      userId: socket.user.id || socket.user.userId, // id do token
       msg
     };
 

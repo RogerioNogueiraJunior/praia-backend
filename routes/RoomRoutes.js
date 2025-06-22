@@ -2,12 +2,14 @@ import express from 'express';
 import {
   listarSalas,
   criarSala,
+  deletarSala
 } from '../controllers/roomController.js';
 
 import Room from '../models/roomModel.js'
 
 const router = express.Router();
 
+router.delete('/room/:id', deletarSala);
 router.get('/rooms', listarSalas);
 router.post('/criar_sala',  criarSala);
 router.post('/entrar_sala', async (req, res) => {
